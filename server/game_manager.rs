@@ -1,9 +1,10 @@
 use std::collections::VecDeque;
 
 use axum::extract::ws::WebSocket;
-use futures::{StreamExt, stream::{SplitSink, SplitStream}};
-use tokio;
-use uuid;
+use futures::{
+    stream::{SplitSink, SplitStream},
+    StreamExt,
+};
 
 use crate::game;
 
@@ -20,19 +21,17 @@ impl ServerQueue {
         }
     }
 
-    pub fn push_user(&mut self, user: User) {
+    pub async fn push_user(&mut self, user: User) {
         self.queue.push_back(user);
 
         let len = self.queue.len();
         if len >= GAME_PLAYER_SIZE {
             let users: Vec<_> = self.queue.split_off(len - GAME_PLAYER_SIZE).into();
             // start game
-            tokio::spawn(async move {
-                let winner = game::SkitGubbe::new(users).run().await;
-                if let Some(winner) = winner {
-                    db_add_winner(&winner).await
-                }
-            });
+            let winner = game::SkitGubbe::new(&users).run().await;
+            if let Some(winner) = winner {
+                db_add_winner(winner).await
+            }
         }
     }
 }
@@ -40,7 +39,7 @@ impl ServerQueue {
 pub struct User {
     pub id: uuid::Uuid,
     pub sender: SplitSink<WebSocket, axum::extract::ws::Message>,
-    pub receiver: SplitStream<WebSocket>
+    pub receiver: SplitStream<WebSocket>,
 }
 
 impl User {
@@ -48,7 +47,8 @@ impl User {
         let (sender, receiver) = socket.split();
         Self {
             id: uuid::Uuid::new_v4(),
-            sender, receiver
+            sender,
+            receiver,
         }
     }
 }

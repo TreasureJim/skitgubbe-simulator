@@ -1,5 +1,3 @@
-use std::ops::Deref;
-
 use crate::{deck, User};
 
 pub struct GameServer {}
@@ -10,37 +8,22 @@ impl GameServer {
     }
 }
 
-pub struct GameManager {}
-
-trait Game {
-    fn execute_turn(&mut self);
-}
-
-struct Player {
-    user: User,
+struct Player<'a> {
+    user: &'a User,
     hidden_cards: Vec<deck::Card>,
     visible_cards: Vec<deck::Card>,
     hand: Vec<deck::Card>,
 }
 
-enum GameState {
-    Setup,
-    Playing,
-}
-
-pub struct SkitGubbe {
-    turn: usize,
+pub struct SkitGubbe<'a> {
+    players: Vec<Player<'a>>,
     deck: deck::Deck,
-
-    players: Vec<Player>,
-
-    state: GameState,
 }
 
 const MAX_TURNS: usize = 300;
 
-impl SkitGubbe {
-    pub fn new(users: Vec<User>) -> Self {
+impl<'a> SkitGubbe<'a> {
+    pub fn new(users: &[User]) -> Self {
         assert!(
             users.len() <= 4,
             "Skit Gubbe game must be 4 players or less"
@@ -57,17 +40,12 @@ impl SkitGubbe {
             });
         }
 
-        Self {
-            turn: 0,
-            deck,
-            players,
-            state: GameState::Setup,
-        }
+        Self { deck, players }
     }
 
-    pub async fn run(mut self) -> (Vec<User>, Option<usize>) {
+    pub async fn run(mut self) -> Option<&'static User> {
         self.notify_players().await;
-        // self.execute_setup_round().await;
+        self.execute_setup_round().await;
 
         let mut winner = None;
         for _ in 0..MAX_TURNS {
@@ -77,24 +55,20 @@ impl SkitGubbe {
             }
         }
 
-        todo!("Rework design of queue system");
-        self.notify_end(&winner.map(|x| &x.user.id)).await;
+        self.notify_end(&winner).await;
 
-        let SkitGubbe { players, .. } = self;
-        return (players.into_iter().map(|player| player.user).collect(), None);
-
-
-        // return winner.to_owned().map(|x| x.to_owned().user);
-    }
-
-    fn get_winner(self, player: &Player) -> Player {
-        *player
+        let Self { players, .. } = self;
+        winner.map(|x| x.user)
     }
 
     async fn execute_setup_round(&mut self) {
         todo!()
     }
 
+    /// Executes a round where all players play, if a player wins the game stops and the index of
+    /// the winning player is returned.
+    ///
+    /// Returns: index of winning player
     async fn execute_round(&mut self) -> Option<&Player> {
         todo!()
     }
@@ -104,7 +78,7 @@ impl SkitGubbe {
     }
 
     /// Notifies all players of end of game and the optional winner
-    async fn notify_end(&self, winner: &Option<&uuid::Uuid>) {
+    async fn notify_end(&self, winner: &Option<&Player<'_>>) {
         todo!()
     }
 }
