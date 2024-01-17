@@ -74,4 +74,6 @@ async fn db_add_winner(user: &User) {
     todo!("compute elo")
 }
 
-fn compute_elo() {}
+fn compute_elo() {
+    todo!("http://sradack.blogspot.com/2008/06/elo-rating-system-multiple-players.html");
+}
