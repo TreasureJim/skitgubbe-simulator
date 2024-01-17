@@ -23,7 +23,7 @@ pub struct SkitGubbe<'a> {
 const MAX_TURNS: usize = 300;
 
 impl<'a> SkitGubbe<'a> {
-    pub fn new(users: &[User]) -> Self {
+    pub fn new(users: &'a [User]) -> Self {
         assert!(
             users.len() <= 4,
             "Skit Gubbe game must be 4 players or less"
@@ -43,9 +43,9 @@ impl<'a> SkitGubbe<'a> {
         Self { deck, players }
     }
 
-    pub async fn run(mut self) -> Option<&'static User> {
-        self.notify_players().await;
-        self.execute_setup_round().await;
+    pub async fn run(mut self) -> Option<&'a User> {
+        // self.notify_players().await;
+        // self.execute_setup_round().await;
 
         let mut winner = None;
         for _ in 0..MAX_TURNS {
@@ -55,10 +55,10 @@ impl<'a> SkitGubbe<'a> {
             }
         }
 
-        self.notify_end(&winner).await;
+        self.notify_end(&winner.map(|x| &self.players[x])).await;
 
         let Self { players, .. } = self;
-        winner.map(|x| x.user)
+        winner.map(|x| players[x].user)
     }
 
     async fn execute_setup_round(&mut self) {
@@ -69,7 +69,7 @@ impl<'a> SkitGubbe<'a> {
     /// the winning player is returned.
     ///
     /// Returns: index of winning player
-    async fn execute_round(&mut self) -> Option<&Player> {
+    async fn execute_round(&mut self) -> Option<usize> {
         todo!()
     }
 
