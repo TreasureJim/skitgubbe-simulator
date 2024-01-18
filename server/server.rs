@@ -47,7 +47,7 @@ async fn main() {
         .allow_methods(vec![Method::GET]);
 
     let router = Router::new()
-        .route("/ws", get(handler))
+        .route("/queue", get(handler))
         .with_state(queue_state)
         .layer(cors);
 

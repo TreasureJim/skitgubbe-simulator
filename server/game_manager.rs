@@ -1,10 +1,10 @@
 use std::{collections::VecDeque, sync::Arc};
 
-use axum::extract::ws::WebSocket;
+use axum::extract::ws::{WebSocket, Message};
 use futures::{
     lock::Mutex,
     stream::{SplitSink, SplitStream},
-    StreamExt,
+    StreamExt, SinkExt,
 };
 
 use crate::game;
@@ -22,8 +22,14 @@ impl ServerQueue {
         }
     }
 
-    pub async fn push_user(&mut self, user: User) {
+    pub async fn push_user(&mut self, mut user: User) {
+        println!("User: {} added to queue", user.id);
+        if let Err(_) = user.sender.send(Message::Text("You have been added to queue.".into())).await {
+            drop(user);
+            return;
+        };
         self.queue.lock().await.push_back(user);
+
 
         let len = self.queue.lock().await.len();
         if len >= GAME_PLAYER_SIZE {
