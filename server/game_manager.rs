@@ -43,11 +43,11 @@ impl ServerQueue {
 
             tokio::spawn(async move {
                 let original_arr = original_arr;
-                let users = users;
+                let mut users = users;
 
                 // start game
-                let winner = game::SkitGubbe::new(&users).run().await;
-                if let Some(winner) = winner {
+                let winner = game::SkitGubbe::new(&mut users).run().await;
+                if let Ok(Some(winner)) = winner {
                     db_add_winner(winner).await
                 }
 
@@ -72,6 +72,10 @@ impl User {
             sender,
             receiver,
         }
+    }
+
+    pub async fn send(&mut self, s: &str) {
+        self.sender.send(Message::Text(s.to_string())).await;
     }
 }
 

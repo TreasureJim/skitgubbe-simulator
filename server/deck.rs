@@ -1,9 +1,11 @@
 use rand::seq::SliceRandom;
+use serde::{Deserialize, Serialize};
 use strum::IntoEnumIterator;
 use strum_macros::EnumIter;
 
 pub type Rank = u8;
 
+#[derive(Deserialize, Serialize)]
 #[derive(Hash, Eq, PartialEq, PartialOrd, EnumIter, Clone)]
 pub enum Suit {
     Club,
@@ -12,7 +14,8 @@ pub enum Suit {
     Spade
 }
 
-pub type Card = (Rank, Suit);
+#[derive(Deserialize, Serialize)]
+pub struct Card (Rank, Suit);
 
 pub struct Deck {
     pub cards: Vec<Card>
@@ -24,7 +27,7 @@ impl Deck {
 
         for rank in 2..=13 {
             for suit in Suit::iter() {
-                cards.push((rank, suit));
+                cards.push(Card (rank, suit));
             }
         }
 
