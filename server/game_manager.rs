@@ -1,10 +1,10 @@
 use std::{collections::VecDeque, sync::Arc};
 
-use axum::extract::ws::{WebSocket, Message};
+use axum::extract::ws::{Message, WebSocket};
 use futures::{
     lock::Mutex,
     stream::{SplitSink, SplitStream},
-    StreamExt, SinkExt,
+    SinkExt, StreamExt,
 };
 
 use crate::game;
@@ -24,12 +24,15 @@ impl ServerQueue {
 
     pub async fn push_user(&mut self, mut user: User) {
         println!("User: {} added to queue", user.id);
-        if let Err(_) = user.sender.send(Message::Text("You have been added to queue.".into())).await {
+        if let Err(_) = user
+            .sender
+            .send(Message::Text("You have been added to queue.".into()))
+            .await
+        {
             drop(user);
             return;
         };
         self.queue.lock().await.push_back(user);
-
 
         let len = self.queue.lock().await.len();
         if len >= GAME_PLAYER_SIZE {
@@ -43,16 +46,30 @@ impl ServerQueue {
 
             tokio::spawn(async move {
                 let original_arr = original_arr;
-                let mut users = users;
+                let mut users: Vec<_> = users
+                    .into_iter()
+                    .map(|user| Arc::new(Mutex::new(user)))
+                    .collect();
 
                 // start game
-                let winner = game::SkitGubbe::new(&mut users).run().await;
+                let winner =
+                    game::SkitGubbe::new(users.iter().map(|user| Arc::clone(user)).collect())
+                        .run()
+                        .await;
                 if let Ok(Some(winner)) = winner {
-                    db_add_winner(winner).await
+                    db_add_winner(&*users[winner].lock().await).await
                 }
 
                 // add users back to queue
-                original_arr.lock().await.append(&mut users.into());
+                let mut users = users
+                    .into_iter()
+                    .map(|user| {
+                        Arc::into_inner(user).expect("Someone else has a reference to this user").into_inner()
+                    })
+                    .collect();
+
+                original_arr.lock().await.append(&mut users);
+                todo!("trigger queue")
             });
         }
     }
@@ -74,8 +91,8 @@ impl User {
         }
     }
 
-    pub async fn send(&mut self, s: &str) {
-        self.sender.send(Message::Text(s.to_string())).await;
+    pub async fn send(&mut self, s: &str) -> Result<(), axum::Error> {
+        self.sender.send(Message::Text(s.to_string())).await
     }
 }
 
