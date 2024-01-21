@@ -7,14 +7,14 @@ use axum::extract::ws::Message;
 use futures_util::{lock::Mutex, StreamExt};
 
 use crate::{
-    deck::{self, Deck},
+    deck::{self, Card, Deck},
     User,
 };
 
 struct Player {
     user: Arc<Mutex<User>>,
-    hidden_cards: Vec<deck::Card>,
-    visible_cards: Vec<deck::Card>,
+    hidden_cards: [Option<deck::Card>; 3],
+    visible_cards: [Vec<deck::Card>; 3],
     hand: Vec<deck::Card>,
 }
 
@@ -42,6 +42,14 @@ impl Player {
             writeln!(s, "{}", serde_json::ser::to_string(card).unwrap()).unwrap();
         }
     }
+
+    pub async fn exchange_cards(&mut self, cards: Vec<Card>, bottom_index: usize) {
+        todo!()
+    }
+
+    pub async fn compound_cards(&mut self, cards: Vec<Card>, bottom_index: usize) {
+        todo!()
+    }
 }
 
 pub struct SkitGubbe {
@@ -60,12 +68,21 @@ impl SkitGubbe {
 
         let mut deck = deck::Deck::new_deck();
         let mut players = vec![];
+
         for user in users.into_iter() {
+            let hidden_cards: [Option<Card>; 3] =
+                core::array::from_fn(|_| Some(deck.pull_card().expect("Should have enough cards")));
+            let visible_cards: [Vec<Card>; 3] = core::array::from_fn(|_| {
+                let x = deck.pull_cards(1);
+                assert_eq!(x.len(), 1, "Should have enough cards");
+                x
+            });
+
             players.push(Arc::new(Mutex::new(Player {
                 user,
                 hand: deck.pull_cards(3),
-                hidden_cards: deck.pull_cards(3),
-                visible_cards: deck.pull_cards(3),
+                hidden_cards,
+                visible_cards,
             })));
         }
 
@@ -144,11 +161,28 @@ impl SkitGubbe {
                 continue;
             };
             match action {
-                action::PlayerSetup::ExchangeCard { hand, bottom } => todo!(),
-                action::PlayerSetup::CompoundCard { hand, target } => todo!(),
-                action::PlayerSetup::FinishExchange => todo!(),
-            }
+                action::PlayerSetup::ExchangeCard { hand, bottom } => {
+                    player.exchange_cards(hand, bottom).await;
+                    player.send_cards().await;
+                }
+                action::PlayerSetup::CompoundCard { hand, bottom } => {
+                    player.compound_cards(hand, bottom).await;
+
+                    if player.hand.len() < 3 {
+                        let num_pick_up = 3 - player.hand.len();
+                        player.hand.append(&mut deck.lock().await.pull_cards(num_pick_up));
+                    }
+
+                    player.send_cards().await;
+                }
+                action::PlayerSetup::FinishExchange => {
+                    break;
+                }
+            };
         }
+
+        player.send_cards().await;
+        Ok(())
     }
 
     /// Executes a round where all players play, if a player wins the game stops and the index of
@@ -161,7 +195,19 @@ impl SkitGubbe {
 
     /// Notifies all players of end of game and the optional winner
     async fn notify_end(&self, winner: Option<usize>) {
-        todo!()
+        let msg;
+        if let Some(winner) = winner {
+            msg = format!(
+                "Game finished, winner is {}!",
+                self.players[winner].lock().await.user.lock().await.id
+            );
+        } else {
+            msg = format!("Game finished, its a draw!",);
+        }
+
+        for player in self.players.iter() {
+            let _ = player.lock().await.user.lock().await.send(&msg).await;
+        }
     }
 }
 
@@ -173,7 +219,7 @@ mod action {
     #[derive(Deserialize, Serialize)]
     pub enum PlayerSetup {
         ExchangeCard { hand: Vec<Card>, bottom: usize },
-        CompoundCard { hand: Vec<Card>, target: usize },
+        CompoundCard { hand: Vec<Card>, bottom: usize },
         FinishExchange,
     }
 }

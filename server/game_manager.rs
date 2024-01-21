@@ -46,7 +46,7 @@ impl ServerQueue {
 
             tokio::spawn(async move {
                 let original_arr = original_arr;
-                let mut users: Vec<_> = users
+                let users: Vec<_> = users
                     .into_iter()
                     .map(|user| Arc::new(Mutex::new(user)))
                     .collect();
