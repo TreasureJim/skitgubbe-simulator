@@ -1,6 +1,5 @@
 #![feature(async_closure)]
 
-mod deck;
 mod game;
 mod game_manager;
 

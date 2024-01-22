@@ -5,20 +5,22 @@ use strum_macros::EnumIter;
 
 pub type Rank = u8;
 
-#[derive(Deserialize, Serialize)]
-#[derive(Hash, Eq, PartialEq, PartialOrd, EnumIter, Clone)]
+#[derive(Deserialize, Serialize, Hash, PartialEq, PartialOrd, Eq, Ord, EnumIter, Clone)]
 pub enum Suit {
     Club,
     Diamond,
     Heart,
-    Spade
+    Spade,
 }
 
-#[derive(Deserialize, Serialize)]
-pub struct Card (Rank, Suit);
+#[derive(Serialize, Deserialize, PartialEq, PartialOrd, Eq, Ord)]
+pub struct Card {
+    pub rank: Rank,
+    pub suit: Suit,
+}
 
 pub struct Deck {
-    pub cards: Vec<Card>
+    pub cards: Vec<Card>,
 }
 
 impl Deck {
@@ -27,7 +29,7 @@ impl Deck {
 
         for rank in 2..=13 {
             for suit in Suit::iter() {
-                cards.push(Card (rank, suit));
+                cards.push(Card { rank, suit });
             }
         }
 
@@ -42,11 +44,9 @@ impl Deck {
     }
 
     /// Pulls n cards from the end of the deck and returns them in a vector.
-    /// If n is greater than the deck size then a maximum of the card deck will be returned. 
+    /// If n is greater than the deck size then a maximum of the card deck will be returned.
     pub fn pull_cards(&mut self, n: usize) -> Vec<Card> {
         let start = 0.max(self.cards.len() - n - 1);
         self.cards.drain(start..).collect()
     }
 }
-
-

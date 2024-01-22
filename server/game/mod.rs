@@ -1,56 +1,16 @@
-use std::{
-    fmt::{Display, Write},
-    sync::Arc,
-};
+mod deck;
+mod player;
+
+use std::sync::Arc;
 
 use axum::extract::ws::Message;
 use futures_util::{lock::Mutex, StreamExt};
 
-use crate::{
-    deck::{self, Card, Deck},
-    User,
-};
+use deck::Card;
+use deck::Deck;
+use player::Player;
 
-struct Player {
-    user: Arc<Mutex<User>>,
-    hidden_cards: [Option<deck::Card>; 3],
-    visible_cards: [Vec<deck::Card>; 3],
-    hand: Vec<deck::Card>,
-}
-
-impl Display for Player {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        todo!()
-    }
-}
-
-impl Player {
-    pub async fn notify_invalid_action(&mut self) {
-        self.user.lock().await.send("Invalid action").await;
-    }
-
-    pub async fn send_cards(&mut self) {
-        let mut s = "".to_string();
-
-        writeln!(s, "Hand Cards:").unwrap();
-        for card in self.hand.iter() {
-            writeln!(s, "{}", serde_json::ser::to_string(card).unwrap()).unwrap();
-        }
-
-        writeln!(s, "Top Cards:").unwrap();
-        for card in self.visible_cards.iter() {
-            writeln!(s, "{}", serde_json::ser::to_string(card).unwrap()).unwrap();
-        }
-    }
-
-    pub async fn exchange_cards(&mut self, cards: Vec<Card>, bottom_index: usize) {
-        todo!()
-    }
-
-    pub async fn compound_cards(&mut self, cards: Vec<Card>, bottom_index: usize) {
-        todo!()
-    }
-}
+use crate::game_manager::User;
 
 pub struct SkitGubbe {
     players: Vec<Arc<Mutex<Player>>>,
@@ -78,12 +38,12 @@ impl SkitGubbe {
                 x
             });
 
-            players.push(Arc::new(Mutex::new(Player {
+            players.push(Arc::new(Mutex::new(Player::new(
                 user,
-                hand: deck.pull_cards(3),
                 hidden_cards,
                 visible_cards,
-            })));
+                deck.pull_cards(3),
+            ))));
         }
 
         Self {
@@ -170,7 +130,9 @@ impl SkitGubbe {
 
                     if player.hand.len() < 3 {
                         let num_pick_up = 3 - player.hand.len();
-                        player.hand.append(&mut deck.lock().await.pull_cards(num_pick_up));
+                        player
+                            .hand.append(&mut deck.lock().await.pull_cards(num_pick_up));
+                        player.hand.sort();
                     }
 
                     player.send_cards().await;
@@ -214,7 +176,7 @@ impl SkitGubbe {
 mod action {
     use serde::{Deserialize, Serialize};
 
-    use crate::deck::Card;
+    use super::deck::Card;
 
     #[derive(Deserialize, Serialize)]
     pub enum PlayerSetup {
