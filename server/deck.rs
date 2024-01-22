@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use rand::seq::SliceRandom;
 use serde::{Deserialize, Serialize};
 use strum::IntoEnumIterator;
@@ -6,7 +8,7 @@ use strum_macros::EnumIter;
 pub type Rank = u8;
 
 #[derive(Deserialize, Serialize)]
-#[derive(Hash, Eq, PartialEq, PartialOrd, EnumIter, Clone)]
+#[derive(strum_macros::Display, Hash, Eq, PartialEq, PartialOrd, EnumIter, Clone)]
 pub enum Suit {
     Club,
     Diamond,
@@ -16,6 +18,12 @@ pub enum Suit {
 
 #[derive(Deserialize, Serialize)]
 pub struct Card (Rank, Suit);
+
+impl Display for Card {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}, {}", self.0, self.1)
+    }
+}
 
 pub struct Deck {
     pub cards: Vec<Card>

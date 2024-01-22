@@ -1,6 +1,6 @@
 use std::{
     fmt::{Display, Write},
-    sync::Arc,
+    sync::Arc, collections::HashMap,
 };
 
 use axum::extract::ws::Message;
@@ -11,11 +11,21 @@ use crate::{
     User,
 };
 
+fn hand_to_string(hand: &HashMap<deck::Card, usize>) -> String {
+    let mut s = "".to_string();
+
+    for (card, num) in hand.iter() {
+        (0..*num).map(|_| write!(s, "{card}"));
+    }
+
+    s
+}
+
 struct Player {
     user: Arc<Mutex<User>>,
     hidden_cards: [Option<deck::Card>; 3],
     visible_cards: [Vec<deck::Card>; 3],
-    hand: Vec<deck::Card>,
+    hand: HashMap<deck::Card, usize>,
 }
 
 impl Display for Player {
@@ -43,11 +53,11 @@ impl Player {
         }
     }
 
-    pub async fn exchange_cards(&mut self, cards: Vec<Card>, bottom_index: usize) {
+    pub fn exchange_cards(&mut self, cards: Vec<Card>, bottom_index: usize) {
         todo!()
     }
 
-    pub async fn compound_cards(&mut self, cards: Vec<Card>, bottom_index: usize) {
+    pub fn compound_cards(&mut self, cards: Vec<Card>, bottom_index: usize) {
         todo!()
     }
 }
@@ -162,11 +172,11 @@ impl SkitGubbe {
             };
             match action {
                 action::PlayerSetup::ExchangeCard { hand, bottom } => {
-                    player.exchange_cards(hand, bottom).await;
+                    player.exchange_cards(hand, bottom);
                     player.send_cards().await;
                 }
                 action::PlayerSetup::CompoundCard { hand, bottom } => {
-                    player.compound_cards(hand, bottom).await;
+                    player.compound_cards(hand, bottom);
 
                     if player.hand.len() < 3 {
                         let num_pick_up = 3 - player.hand.len();
