@@ -85,8 +85,16 @@ impl Player {
     /// If `cards` is empty
     /// If `cards` do not all have the same rank
     /// If `self.hand` does not contain `cards`
-    pub async fn compound_cards(&mut self, cards: Vec<Card>, bottom_index: usize) -> Result<(), &str> {
-        todo!()
+    pub async fn compound_cards(&mut self, mut cards: Vec<Card>, bottom_index: usize) -> Result<(), &'static str> {
+        let first_index_hand = self.check_given_cards_valid(&cards)?;
+
+        // remove the cards form `self.hand`
+        self.hand.drain(first_index_hand..first_index_hand + cards.len());
+
+        // add to the bottom cards
+        self.visible_cards[bottom_index].append(&mut cards);
+
+        Ok(())
     }
 
     /// Check if `self.hand` contains `cards` and that given cards are all the same rank

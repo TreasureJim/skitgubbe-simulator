@@ -91,6 +91,8 @@ impl SkitGubbe {
                 ))
             })
             .collect();
+
+        // TODO: Add timeout period if one of the players takes too long
         futures::future::join_all(player_futures).await;
     }
 
@@ -122,11 +124,17 @@ impl SkitGubbe {
             };
             match action {
                 action::PlayerSetup::ExchangeCard { hand, bottom } => {
-                    player.exchange_cards(hand, bottom).await;
+                    if let Err(e) = player.exchange_cards(hand, bottom).await {
+                        let _ = player.user.lock().await.send(e).await;
+                        continue;
+                    }
                     player.send_cards().await;
                 }
                 action::PlayerSetup::CompoundCard { hand, bottom } => {
-                    player.compound_cards(hand, bottom).await;
+                    if let Err(e) = player.compound_cards(hand, bottom).await {
+                        let _ = player.user.lock().await.send(&e).await;
+                        continue;
+                    }
 
                     if player.hand.len() < 3 {
                         let num_pick_up = 3 - player.hand.len();
