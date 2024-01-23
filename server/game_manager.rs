@@ -36,6 +36,7 @@ impl ServerQueue {
 
         let len = self.queue.lock().await.len();
         if len >= GAME_PLAYER_SIZE {
+            // TODO: Check all players are connected
             let users: Vec<User> = self
                 .queue
                 .lock()
@@ -59,6 +60,8 @@ impl ServerQueue {
                 if let Ok(Some(winner)) = winner {
                     db_add_winner(&*users[winner].lock().await).await
                 }
+
+                // TODO: If error check which player caused it and don't add back to queue
 
                 // add users back to queue
                 let mut users = users

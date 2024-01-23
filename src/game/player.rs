@@ -4,7 +4,8 @@ use std::sync::Arc;
 
 use futures_util::lock::Mutex;
 
-use super::deck::{self, Card};
+use crate::api;
+use crate::deck::{self, Card};
 use crate::user::User;
 
 pub struct Player {
@@ -40,18 +41,17 @@ impl Player {
     }
 
     pub async fn send_cards(&mut self) {
-        let mut s = "".to_string();
-
-        writeln!(s, "Hand Cards:").unwrap();
-        for card in self.hand.iter() {
-            writeln!(s, "{}", serde_json::ser::to_string(card).unwrap()).unwrap();
+        let bottom_cards;
+        if !self.visible_cards.is_empty() {
+            bottom_cards = self.visible_cards.to_vec();
+        } else {
+            bottom_cards = self.hidden_cards.to_vec().into_iter().map(|x| {
+                let mut arr = Vec::with_capacity(1); if let Some(card) = x { arr.push(card); } arr 
+            }).collect();
         }
 
-        writeln!(s, "Top Cards:").unwrap();
-        for card in self.visible_cards.iter() {
-            writeln!(s, "{}", serde_json::ser::to_string(card).unwrap()).unwrap();
-        }
-
+        let cards = api::server_messages::PlayerCards::new(self.user.lock().await.id.to_string(), self.hand.to_vec(), bottom_cards);
+        let s = serde_json::to_string(&cards).unwrap();
         let _ = self.user.lock().await.send(&s).await;
     }
 

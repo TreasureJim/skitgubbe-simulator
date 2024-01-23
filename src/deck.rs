@@ -13,7 +13,7 @@ pub enum Suit {
     Spade,
 }
 
-#[derive(Serialize, Deserialize, PartialEq, PartialOrd, Eq, Ord)]
+#[derive(Clone, Serialize, Deserialize, PartialEq, PartialOrd, Eq, Ord)]
 pub struct Card {
     /// Card order:
     /// 2 3 4 5 6 7 8 9 10 J Q K A

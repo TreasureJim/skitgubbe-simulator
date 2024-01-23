@@ -3,13 +3,17 @@
 mod game_manager;
 
 use axum::{
-    extract::{ws::WebSocket, State, WebSocketUpgrade},
+    extract::{
+        ws::{Message, WebSocket},
+        State, WebSocketUpgrade,
+    },
     http::Method,
     response::IntoResponse,
     routing::get,
     Router,
 };
 use futures::lock::Mutex;
+use futures_util::SinkExt;
 use skitgubbe_game::user::User;
 use std::sync::Arc;
 use tokio::{self, net::TcpListener};
@@ -61,7 +65,16 @@ async fn handler(
     ws.on_upgrade(|socket| handle_socket(socket, state))
 }
 
+use skitgubbe_game::api::server_messages::ServerMessages;
+
 async fn handle_socket(socket: WebSocket, state: Arc<Mutex<ServerQueue>>) {
-    let user = User::new(socket);
+    let mut user = User::new(socket);
+
+    let server_id_msg = ServerMessages::Id(user.id.to_string());
+    let _ = user
+        .sender
+        .send(Message::Text(serde_json::to_string(&server_id_msg).unwrap()))
+        .await;
+
     state.lock().await.push_user(user).await;
 }
