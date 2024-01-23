@@ -10,7 +10,7 @@ use deck::Card;
 use deck::Deck;
 use player::Player;
 
-use crate::game_manager::User;
+use crate::user::User;
 
 pub struct SkitGubbe {
     players: Vec<Arc<Mutex<Player>>>,

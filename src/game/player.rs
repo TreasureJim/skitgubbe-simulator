@@ -5,7 +5,7 @@ use std::sync::Arc;
 use futures_util::lock::Mutex;
 
 use super::deck::{self, Card};
-use crate::User;
+use crate::user::User;
 
 pub struct Player {
     pub user: Arc<Mutex<User>>,

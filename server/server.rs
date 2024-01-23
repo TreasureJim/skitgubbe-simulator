@@ -1,6 +1,5 @@
 #![feature(async_closure)]
 
-mod game;
 mod game_manager;
 
 use axum::{
@@ -11,7 +10,7 @@ use axum::{
     Router,
 };
 use futures::lock::Mutex;
-use game_manager::User;
+use skitgubbe_game::user::User;
 use std::sync::Arc;
 use tokio::{self, net::TcpListener};
 use tower_http::cors::{Any, CorsLayer};
