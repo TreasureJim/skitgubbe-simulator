@@ -1,12 +1,11 @@
+use std::fmt::Write;
 use std::mem;
 use std::sync::Arc;
-use std::fmt::Write;
 
 use futures_util::lock::Mutex;
 
-use crate::User;
 use super::deck::{self, Card};
-
+use crate::User;
 
 pub struct Player {
     pub user: Arc<Mutex<User>>,
@@ -52,6 +51,8 @@ impl Player {
         for card in self.visible_cards.iter() {
             writeln!(s, "{}", serde_json::ser::to_string(card).unwrap()).unwrap();
         }
+
+        let _ = self.user.lock().await.send(&s).await;
     }
 
     /// Switches the cards from `cards` by removing from `self.hands` into
@@ -68,7 +69,8 @@ impl Player {
         let first_index_hand = self.check_given_cards_valid(&cards)?;
 
         // remove the cards form `self.hand`
-        self.hand.drain(first_index_hand..first_index_hand + cards.len());
+        self.hand
+            .drain(first_index_hand..first_index_hand + cards.len());
 
         // exchange the bottom cards into `self.hand` ensuring order
         self.hand.append(&mut self.visible_cards[bottom_index]);
@@ -85,11 +87,16 @@ impl Player {
     /// If `cards` is empty
     /// If `cards` do not all have the same rank
     /// If `self.hand` does not contain `cards`
-    pub async fn compound_cards(&mut self, mut cards: Vec<Card>, bottom_index: usize) -> Result<(), &'static str> {
+    pub async fn compound_cards(
+        &mut self,
+        mut cards: Vec<Card>,
+        bottom_index: usize,
+    ) -> Result<(), &'static str> {
         let first_index_hand = self.check_given_cards_valid(&cards)?;
 
         // remove the cards form `self.hand`
-        self.hand.drain(first_index_hand..first_index_hand + cards.len());
+        self.hand
+            .drain(first_index_hand..first_index_hand + cards.len());
 
         // add to the bottom cards
         self.visible_cards[bottom_index].append(&mut cards);
@@ -118,7 +125,11 @@ impl Player {
 
         // ensure all the cards in `card` is in `self.hand`
         // collect all indexes of matches
-        let first_index_hand = self.hand.iter().position(|x| cards[0].rank == x.rank).ok_or("Card to swap is not in hand")?;
+        let first_index_hand = self
+            .hand
+            .iter()
+            .position(|x| cards[0].rank == x.rank)
+            .ok_or("Card to swap is not in hand")?;
 
         let mut num_in_hand = 0;
         for card in self.hand.iter().skip(first_index_hand) {
