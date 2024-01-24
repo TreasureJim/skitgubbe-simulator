@@ -3,7 +3,11 @@ name = "skitgubbe-server"
 version = "0.1.0"
 edition = "2021"
 
-[[bin]]
+[lib]
+name = "skitgubbe_game"
+path = "src/lib.rs"
+
+[[example]]
 name = "client"
 path = "client/client.rs"
 

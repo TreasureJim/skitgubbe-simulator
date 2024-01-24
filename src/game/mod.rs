@@ -1,70 +1,22 @@
-use std::{
-    fmt::{Display, Write},
-    sync::Arc, collections::HashMap,
-};
+mod player;
+
+use std::sync::Arc;
 
 use axum::extract::ws::Message;
 use futures_util::{lock::Mutex, StreamExt};
 
-use crate::{
-    deck::{self, Card, Deck},
-    User,
-};
+use crate::deck::Card;
+use crate::deck::Deck;
+use player::Player;
 
-fn hand_to_string(hand: &HashMap<deck::Card, usize>) -> String {
-    let mut s = "".to_string();
+use crate::user::User;
 
-    for (card, num) in hand.iter() {
-        (0..*num).map(|_| write!(s, "{card}"));
-    }
-
-    s
-}
-
-struct Player {
-    user: Arc<Mutex<User>>,
-    hidden_cards: [Option<deck::Card>; 3],
-    visible_cards: [Vec<deck::Card>; 3],
-    hand: HashMap<deck::Card, usize>,
-}
-
-impl Display for Player {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        todo!()
-    }
-}
-
-impl Player {
-    pub async fn notify_invalid_action(&mut self) {
-        self.user.lock().await.send("Invalid action").await;
-    }
-
-    pub async fn send_cards(&mut self) {
-        let mut s = "".to_string();
-
-        writeln!(s, "Hand Cards:").unwrap();
-        for card in self.hand.iter() {
-            writeln!(s, "{}", serde_json::ser::to_string(card).unwrap()).unwrap();
-        }
-
-        writeln!(s, "Top Cards:").unwrap();
-        for card in self.visible_cards.iter() {
-            writeln!(s, "{}", serde_json::ser::to_string(card).unwrap()).unwrap();
-        }
-    }
-
-    pub fn exchange_cards(&mut self, cards: Vec<Card>, bottom_index: usize) {
-        todo!()
-    }
-
-    pub fn compound_cards(&mut self, cards: Vec<Card>, bottom_index: usize) {
-        todo!()
-    }
-}
+use crate::api::player_messages;
+use crate::api::server_messages;
 
 pub struct SkitGubbe {
     players: Vec<Arc<Mutex<Player>>>,
-    deck: Arc<Mutex<deck::Deck>>,
+    deck: Arc<Mutex<Deck>>,
 }
 
 const MAX_TURNS: usize = 300;
@@ -76,7 +28,7 @@ impl SkitGubbe {
             "Skit Gubbe game must be 4 players or less"
         );
 
-        let mut deck = deck::Deck::new_deck();
+        let mut deck = Deck::new_deck();
         let mut players = vec![];
 
         for user in users.into_iter() {
@@ -88,17 +40,23 @@ impl SkitGubbe {
                 x
             });
 
-            players.push(Arc::new(Mutex::new(Player {
+            players.push(Arc::new(Mutex::new(Player::new(
                 user,
-                hand: deck.pull_cards(3),
                 hidden_cards,
                 visible_cards,
-            })));
+                deck.pull_cards(3),
+            ))));
         }
 
         Self {
             deck: Arc::new(Mutex::new(deck)),
             players,
+        }
+    }
+
+    pub async fn notify_all_players(&self, msg: &str) {
+        for player in &self.players {
+            let _ = player.lock().await.user.lock().await.send(msg).await;
         }
     }
 
@@ -115,8 +73,14 @@ impl SkitGubbe {
                 .map_err(|_| ())?;
         }
 
+        // start setup round
+        self.notify_all_players(&serde_json::to_string(&server_messages::Stage::Swap).unwrap())
+            .await;
         self.execute_setup_round().await;
 
+        // start normal rounds
+        self.notify_all_players(&serde_json::to_string(&server_messages::Stage::Play).unwrap())
+            .await;
         let mut winner = None;
         for _ in 0..MAX_TURNS {
             if let Some(player) = self.execute_round().await {
@@ -141,6 +105,8 @@ impl SkitGubbe {
                 ))
             })
             .collect();
+
+        // TODO: Add timeout period if one of the players takes too long
         futures::future::join_all(player_futures).await;
     }
 
@@ -166,26 +132,36 @@ impl SkitGubbe {
                 continue;
             };
             // parse msg
-            let Ok(action) = serde_json::from_str::<action::PlayerSetup>(&message) else {
+            let Ok(action) = serde_json::from_str::<player_messages::action::PlayerSetup>(&message)
+            else {
                 player.notify_invalid_action().await;
                 continue;
             };
             match action {
-                action::PlayerSetup::ExchangeCard { hand, bottom } => {
-                    player.exchange_cards(hand, bottom);
+                player_messages::action::PlayerSetup::ExchangeCard { hand, bottom } => {
+                    if let Err(e) = player.exchange_cards(hand, bottom).await {
+                        let _ = player.user.lock().await.send(e).await;
+                        continue;
+                    }
                     player.send_cards().await;
                 }
-                action::PlayerSetup::CompoundCard { hand, bottom } => {
-                    player.compound_cards(hand, bottom);
+                player_messages::action::PlayerSetup::CompoundCard { hand, bottom } => {
+                    if let Err(e) = player.compound_cards(hand, bottom).await {
+                        let _ = player.user.lock().await.send(&e).await;
+                        continue;
+                    }
 
                     if player.hand.len() < 3 {
                         let num_pick_up = 3 - player.hand.len();
-                        player.hand.append(&mut deck.lock().await.pull_cards(num_pick_up));
+                        player
+                            .hand
+                            .append(&mut deck.lock().await.pull_cards(num_pick_up));
+                        player.hand.sort();
                     }
 
                     player.send_cards().await;
                 }
-                action::PlayerSetup::FinishExchange => {
+                player_messages::action::PlayerSetup::FinishExchange => {
                     break;
                 }
             };
@@ -218,18 +194,5 @@ impl SkitGubbe {
         for player in self.players.iter() {
             let _ = player.lock().await.user.lock().await.send(&msg).await;
         }
-    }
-}
-
-mod action {
-    use serde::{Deserialize, Serialize};
-
-    use crate::deck::Card;
-
-    #[derive(Deserialize, Serialize)]
-    pub enum PlayerSetup {
-        ExchangeCard { hand: Vec<Card>, bottom: usize },
-        CompoundCard { hand: Vec<Card>, bottom: usize },
-        FinishExchange,
     }
 }

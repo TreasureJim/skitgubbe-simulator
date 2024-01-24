@@ -1,13 +1,13 @@
 use std::{collections::VecDeque, sync::Arc};
 
-use axum::extract::ws::{Message, WebSocket};
+use axum::extract::ws::Message;
 use futures::{
     lock::Mutex,
-    stream::{SplitSink, SplitStream},
-    SinkExt, StreamExt,
+    SinkExt,
 };
 
-use crate::game;
+use skitgubbe_game::game;
+use skitgubbe_game::user::User;
 
 pub struct ServerQueue {
     queue: Arc<Mutex<VecDeque<User>>>,
@@ -26,7 +26,7 @@ impl ServerQueue {
         println!("User: {} added to queue", user.id);
         if let Err(_) = user
             .sender
-            .send(Message::Text("You have been added to queue.".into()))
+            .send(Message::Text("Waiting in queue".into()))
             .await
         {
             drop(user);
@@ -36,6 +36,7 @@ impl ServerQueue {
 
         let len = self.queue.lock().await.len();
         if len >= GAME_PLAYER_SIZE {
+            // TODO: Check all players are connected
             let users: Vec<User> = self
                 .queue
                 .lock()
@@ -60,6 +61,8 @@ impl ServerQueue {
                     db_add_winner(&*users[winner].lock().await).await
                 }
 
+                // TODO: If error check which player caused it and don't add back to queue
+
                 // add users back to queue
                 let mut users = users
                     .into_iter()
@@ -75,30 +78,10 @@ impl ServerQueue {
     }
 }
 
-pub struct User {
-    pub id: uuid::Uuid,
-    pub sender: SplitSink<WebSocket, axum::extract::ws::Message>,
-    pub receiver: SplitStream<WebSocket>,
-}
-
-impl User {
-    pub fn new(socket: WebSocket) -> Self {
-        let (sender, receiver) = socket.split();
-        Self {
-            id: uuid::Uuid::new_v4(),
-            sender,
-            receiver,
-        }
-    }
-
-    pub async fn send(&mut self, s: &str) -> Result<(), axum::Error> {
-        self.sender.send(Message::Text(s.to_string())).await
-    }
-}
 
 async fn db_add_winner(user: &User) {
-    todo!("notify db of win");
-    todo!("compute elo")
+    compute_elo();
+    todo!("compute elo & notify db of win");
 }
 
 fn compute_elo() {
