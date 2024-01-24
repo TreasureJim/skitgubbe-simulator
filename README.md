@@ -22,3 +22,4 @@ Alternate names:
     - make sure players aren't playing against the same people every time (hopefully the ELO system will help with this)
 - Handle timeouts for players in game not responding
 - Setup system to debug if crashes occur in production
+- Check all users in queue are connected before starting game
