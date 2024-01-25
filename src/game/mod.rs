@@ -5,6 +5,7 @@ use std::sync::Arc;
 use axum::extract::ws::Message;
 use futures_util::{lock::Mutex, StreamExt};
 
+use crate::api::server_messages::PlayerCards;
 use crate::deck::Card;
 use crate::deck::Deck;
 use player::Player;
@@ -100,7 +101,11 @@ impl SkitGubbe {
     }
 
     /// Executes the setup round for all players asynchronously
-    async fn execute_setup_round(&mut self) {
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if player connects with player ID
+    async fn execute_setup_round(&mut self) -> Result<(), String> {
         let player_futures: Vec<_> = self
             .players
             .iter()
@@ -113,14 +118,36 @@ impl SkitGubbe {
             .collect();
 
         // TODO: Add timeout period if one of the players takes too long
-        futures::future::join_all(player_futures).await;
+        let answers = futures::future::join_all(player_futures).await;
+        let player_cards: Vec<PlayerCards> = answers
+            .into_iter()
+            .map(|x| x.unwrap())
+            .collect::<Result<Vec<_>, _>>()?;
+
+        // send all players all cards
+        for player in &self.players {
+            let player = player.lock().await;
+            for cards in &player_cards {
+                let _ = player.user.lock().await.send(&serde_json::to_string(cards).unwrap()).await;
+            }
+        }
+
+        Ok(())
     }
 
+    /// Runs the player's swap round asynchronously.
+    /// Returns the players new cards
+    ///
+    /// # Errors
+    ///
+    /// This function will return an error if the player disconnects.
+    /// Returns the player ID if error.
     async fn player_setup_round(
         player: Arc<Mutex<Player>>,
         deck: Arc<Mutex<Deck>>,
-    ) -> Result<(), ()> {
+    ) -> Result<server_messages::PlayerCards, String> {
         let mut player = player.lock().await;
+        let player_id = player.user.lock().await.id.to_string();
 
         // show players their cards
         player.send_cards().await;
@@ -134,7 +161,7 @@ impl SkitGubbe {
             };
 
             // if error reading
-            let Message::Text(message) = message.map_err(|_| ())? else {
+            let Message::Text(message) = message.map_err(|_| player_id.clone())? else {
                 continue;
             };
             // parse msg
@@ -173,8 +200,12 @@ impl SkitGubbe {
             };
         }
 
-        player.send_cards().await;
-        Ok(())
+        let id = player.user.lock().await.id.to_string();
+        Ok(server_messages::PlayerCards {
+            owner_id: id,
+            hand: player.hand.to_vec(),
+            bottom_cards: player.get_bottom_cards(),
+        })
     }
 
     /// Executes a round where all players play, if a player wins the game stops and the index of
