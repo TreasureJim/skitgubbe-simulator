@@ -43,24 +43,40 @@ pub mod server_messages {
         Id(String)
     }
 
-    #[derive(Serialize, Deserialize)]
+    #[derive(Serialize, Deserialize, Debug)]
     #[serde(tag = "Stage")]
     pub enum Stage {
         Swap,
         Play,
     }
 
+    type BottomCards = Vec<Vec<Card>>;
+
     #[derive(Serialize, Deserialize, Debug, Clone)]
     #[serde(tag = "state")]
     pub struct Cards {
         pub owner_id: String,
         pub hand: Vec<Card>,
-        pub bottom_cards: Vec<Vec<Card>>,
+        pub bottom_cards: BottomCards,
     }
 
     impl Cards {
         pub fn new(owner_id: String, hand: Vec<Card>, bottom_cards: Vec<Vec<Card>>) -> Self {
             Self { hand, bottom_cards, owner_id }
         }
+    }
+
+    /// A struct representing the game state
+    #[derive(Serialize, Deserialize, Debug)]
+    pub struct GameState {
+        /// The ID of the player who turn it is
+        turn: String,
+        stage: Stage,
+        /// The cards of the player
+        cards: Cards,
+        /// The stack of played cards
+        stack: Vec<Card>,
+        /// Other players visible cards
+        other_players: Vec<(String, BottomCards)>
     }
 }
