@@ -3,6 +3,11 @@ use serde::{Deserialize, Serialize};
 use strum::IntoEnumIterator;
 use strum_macros::EnumIter;
 
+pub const JACK_RANK: u8 = 11;
+pub const QUEEN_RANK: u8 = 12;
+pub const KING_RANK: u8 = 13;
+pub const ACE_RANK: u8 = 14;
+
 pub type Rank = u8;
 
 #[derive(Deserialize, Serialize, Hash, PartialEq, PartialOrd, Eq, Ord, EnumIter, Clone, Debug)]
