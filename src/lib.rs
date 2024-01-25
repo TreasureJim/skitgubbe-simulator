@@ -1,4 +1,4 @@
-#![feature(async_closure)]
+#![feature(async_closure, let_chains)]
 
 pub mod game;
 pub mod user;
