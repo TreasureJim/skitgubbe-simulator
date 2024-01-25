@@ -1,6 +1,7 @@
 #![feature(async_closure)]
 
 use core::panic;
+use std::sync::Mutex;
 
 use futures_util::{SinkExt, StreamExt};
 use tokio_tungstenite::{self, tungstenite::Message};
@@ -59,7 +60,7 @@ async fn main() {
     let mut cards;
 
     loop {
-        cards = serde_json::from_str::<server_messages::PlayerCards>(
+        cards = serde_json::from_str::<server_messages::Cards>(
             &stream.next().await.unwrap().unwrap().to_string(),
         )
         .expect("expect cards notif");
@@ -130,8 +131,13 @@ async fn main() {
                 None
             });
         if let Some((bottom_index, compound_cards)) = compoundable_card_hand_indexes {
-            let msg = player_messages::action::SetupAction::CompoundCard { hand: compound_cards.iter().map(|&card| card.clone()).collect(), bottom: bottom_index };
-            let _ = stream.send(Message::Text(serde_json::to_string(&msg).unwrap())).await;
+            let msg = player_messages::action::SetupAction::CompoundCard {
+                hand: compound_cards.iter().map(|&card| card.clone()).collect(),
+                bottom: bottom_index,
+            };
+            let _ = stream
+                .send(Message::Text(serde_json::to_string(&msg).unwrap()))
+                .await;
             println!("compounding cards");
 
             continue;
@@ -140,8 +146,40 @@ async fn main() {
         break;
     }
 
-    let _ = stream.send(Message::Text(serde_json::to_string(&player_messages::action::SetupAction::FinishExchange).unwrap())).await;
+    let _ = stream
+        .send(Message::Text(
+            serde_json::to_string(&player_messages::action::SetupAction::FinishExchange).unwrap(),
+        ))
+        .await;
     println!("Finished exchange");
+
+    let mut all_cards = serde_json::from_str::<Vec<server_messages::Cards>>(
+        &stream.next().await.unwrap().unwrap().to_string(),
+    )
+    .expect("expect all cards status");
+    cards = all_cards.remove(
+        all_cards
+            .iter()
+            .position(|other_cards| other_cards.owner_id == our_id)
+            .expect("our cards should be in list"),
+    );
+    println!("Received everyones cards");
+
+    let stage = serde_json::from_str::<server_messages::Stage>(
+        &stream.next().await.unwrap().unwrap().to_string(),
+    )
+    .expect("expect game stage play");
+    if let server_messages::Stage::Play = stage {
+        println!("Play stage");
+    } else {
+        panic!("stage not play");
+    }
+
+    //                  CARD PLAYING STRATEGY
+
+    // loop {
+    //     todo!();
+    // }
 
     loop {
         println!(
