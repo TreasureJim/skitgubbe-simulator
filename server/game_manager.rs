@@ -22,16 +22,16 @@ impl ServerQueue {
         }
     }
 
-    pub async fn push_user(&mut self, mut user: User) {
+    pub async fn push_user(&mut self, user: User) {
         println!("User: {} added to queue", user.id);
-        if let Err(_) = user
-            .sender
-            .send(Message::Text("Waiting in queue".into()))
-            .await
-        {
-            drop(user);
-            return;
-        };
+        // if let Err(_) = user
+        //     .sender
+        //     .send(Message::Text("Waiting in queue".into()))
+        //     .await
+        // {
+        //     drop(user);
+        //     return;
+        // };
         self.queue.lock().await.push_back(user);
 
         let len = self.queue.lock().await.len();
