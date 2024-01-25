@@ -36,6 +36,20 @@ impl Player {
         }
     }
 
+    pub fn get_bottom_cards(&self) -> Vec<Vec<deck::Card>> {
+        if !self.visible_cards.is_empty() {
+            return self.visible_cards.to_vec();
+        } else {
+            return self.hidden_cards.to_vec().into_iter().map(|option| {
+                if let Some(card) = option {
+                    return vec![card];
+                } else {
+                    return vec![];
+                }
+            }).collect();
+        }
+    }
+
     pub async fn notify_invalid_action(&mut self) {
         let _ = self.user.lock().await.send("Invalid action").await;
     }

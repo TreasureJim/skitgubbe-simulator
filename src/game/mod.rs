@@ -119,7 +119,7 @@ impl SkitGubbe {
 
         // TODO: Add timeout period if one of the players takes too long
         let answers = futures::future::join_all(player_futures).await;
-        let player_cards: Vec<PlayerCards> = answers
+        let all_player_cards: Vec<PlayerCards> = answers
             .into_iter()
             .map(|x| x.unwrap())
             .collect::<Result<Vec<_>, _>>()?;
@@ -127,9 +127,7 @@ impl SkitGubbe {
         // send all players all cards
         for player in &self.players {
             let player = player.lock().await;
-            for cards in &player_cards {
-                let _ = player.user.lock().await.send(&serde_json::to_string(cards).unwrap()).await;
-            }
+            let _ = player.user.lock().await.send(&serde_json::to_string(&all_player_cards).unwrap()).await;
         }
 
         Ok(())
