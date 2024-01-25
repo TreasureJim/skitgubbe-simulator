@@ -5,7 +5,7 @@ pub mod player_messages {
         use crate::deck::Card;
 
         #[derive(Deserialize, Serialize)]
-        pub enum PlayerSetup {
+        pub enum SetupAction {
             ExchangeCard { hand: Vec<Card>, bottom: usize },
             CompoundCard { hand: Vec<Card>, bottom: usize },
             FinishExchange,
@@ -19,7 +19,8 @@ pub mod server_messages {
     use crate::deck::Card;
 
     #[derive(Serialize, Deserialize)]
-    pub enum ServerMessages {
+    pub enum ServerNotification {
+        GameStart(Vec<String>),
         Id(String)
     }
 
@@ -30,12 +31,12 @@ pub mod server_messages {
         Play,
     }
 
-    #[derive(Serialize)]
+    #[derive(Serialize, Deserialize, Debug)]
     #[serde(tag = "state")]
     pub struct PlayerCards {
-        owner_id: String,
-        hand: Vec<Card>,
-        bottom_cards: Vec<Vec<Card>>,
+        pub owner_id: String,
+        pub hand: Vec<Card>,
+        pub bottom_cards: Vec<Vec<Card>>,
     }
 
     impl PlayerCards {

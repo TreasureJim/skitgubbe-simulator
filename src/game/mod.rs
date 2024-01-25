@@ -61,6 +61,12 @@ impl SkitGubbe {
     }
 
     pub async fn run(mut self) -> Result<Option<usize>, ()> {
+        let mut player_ids = vec![];
+        for player in &self.players {
+            player_ids.push(player.lock().await.user.lock().await.id.to_string());
+        }
+        let game_start_msg = server_messages::ServerNotification::GameStart(player_ids);
+
         for player in self.players.iter_mut() {
             player
                 .lock()
@@ -68,7 +74,7 @@ impl SkitGubbe {
                 .user
                 .lock()
                 .await
-                .send("Game has started.")
+                .send(&serde_json::to_string(&game_start_msg).unwrap())
                 .await
                 .map_err(|_| ())?;
         }
@@ -132,20 +138,20 @@ impl SkitGubbe {
                 continue;
             };
             // parse msg
-            let Ok(action) = serde_json::from_str::<player_messages::action::PlayerSetup>(&message)
+            let Ok(action) = serde_json::from_str::<player_messages::action::SetupAction>(&message)
             else {
                 player.notify_invalid_action().await;
                 continue;
             };
             match action {
-                player_messages::action::PlayerSetup::ExchangeCard { hand, bottom } => {
+                player_messages::action::SetupAction::ExchangeCard { hand, bottom } => {
                     if let Err(e) = player.exchange_cards(hand, bottom).await {
                         let _ = player.user.lock().await.send(e).await;
                         continue;
                     }
                     player.send_cards().await;
                 }
-                player_messages::action::PlayerSetup::CompoundCard { hand, bottom } => {
+                player_messages::action::SetupAction::CompoundCard { hand, bottom } => {
                     if let Err(e) = player.compound_cards(hand, bottom).await {
                         let _ = player.user.lock().await.send(&e).await;
                         continue;
@@ -161,7 +167,7 @@ impl SkitGubbe {
 
                     player.send_cards().await;
                 }
-                player_messages::action::PlayerSetup::FinishExchange => {
+                player_messages::action::SetupAction::FinishExchange => {
                     break;
                 }
             };

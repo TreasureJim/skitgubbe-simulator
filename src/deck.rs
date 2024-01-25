@@ -5,7 +5,7 @@ use strum_macros::EnumIter;
 
 pub type Rank = u8;
 
-#[derive(Deserialize, Serialize, Hash, PartialEq, PartialOrd, Eq, Ord, EnumIter, Clone)]
+#[derive(Deserialize, Serialize, Hash, PartialEq, PartialOrd, Eq, Ord, EnumIter, Clone, Debug)]
 pub enum Suit {
     Club,
     Diamond,
@@ -13,7 +13,7 @@ pub enum Suit {
     Spade,
 }
 
-#[derive(Clone, Serialize, Deserialize, PartialEq, PartialOrd, Eq, Ord)]
+#[derive(Clone, Serialize, Deserialize, PartialEq, PartialOrd, Eq, Ord, Debug)]
 pub struct Card {
     /// Card order:
     /// 2 3 4 5 6 7 8 9 10 J Q K A

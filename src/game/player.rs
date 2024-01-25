@@ -98,6 +98,12 @@ impl Player {
         self.hand
             .drain(first_index_hand..first_index_hand + cards.len());
 
+        // check that card is same as bottom card
+        // here the bottom cards will always be the visible cards
+        if cards[0].rank != self.visible_cards[bottom_index][0].rank {
+            return Err("card to compound doesn't have the same rank as the bottom card index rank");
+        }
+
         // add to the bottom cards
         self.visible_cards[bottom_index].append(&mut cards);
 
