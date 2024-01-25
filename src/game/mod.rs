@@ -302,6 +302,9 @@ impl SkitGubbe {
                 let pickup_num = 3 - player.cards.hand.len();
                 player.cards.hand.append(&mut self.deck.lock().await.pull_cards(pickup_num));
             }
+
+            player.send_cards().await;
+            todo!("send actions of player to other players");
         }
 
         Ok(None)
