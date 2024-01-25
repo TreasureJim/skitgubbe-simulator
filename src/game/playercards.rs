@@ -57,10 +57,46 @@ impl PlayerCards {
         cards
     }
 
-    /// Checks if the player is able to play the card and removes it from the correct card stack (hand, visible or hidden)
+    pub fn can_play(&self, card: &Card) -> bool {
+        // hand
+        if !self.hand.is_empty() {
+            return self.hand.contains(card);
+        }
+
+        // visible cards
+        if !self.visible_cards.is_empty() {
+            return self
+                .visible_cards
+                .iter()
+                .find(|vec| vec[0] == *card).is_some();
+        }
+
+        // hidden cards
+        let hidden_cards: Vec<&Card> = self
+            .hidden_cards
+            .iter()
+            .filter(|x| x.is_some())
+            .map(|x| x.as_ref().unwrap())
+            .collect();
+        if card.rank == 2
+            || card.rank == 10
+            || card.rank == deck::ACE_RANK && hidden_cards.len() == 1
+        {
+            // Cant play rank 2, 10 or ACE for last card
+            return false;
+        }
+        return hidden_cards.contains(&card);
+    }
+
+    /// Checks if the player is able to play the card and removes it from the player cards
     ///
     /// # Returns
     /// Returns the removed card or None.
+    ///
+    /// # None
+    /// Returns none if:
+    /// - The card is not accessible
+    /// - Tries to play the last card as 2, 10 or ace
     pub fn play_card(&mut self, card: &Card) -> Option<Card> {
         // hand
         if !self.hand.is_empty() {

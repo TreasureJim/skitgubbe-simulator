@@ -14,6 +14,7 @@ pub mod player_messages {
         #[derive(Deserialize, Serialize)]
         pub enum PlayAction {
             /// Player places a card or cards
+            /// If player has < 3 cards then will automatically pick up a card if possible
             ///
             /// Valid combinations:
             /// - Multiple cards of the same rank
@@ -22,10 +23,7 @@ pub mod player_messages {
             ///
             /// # Errors
             /// Server returns an error if sequence is invalid:
-            PlaceCard { cards: Vec<Card> },
-
-            /// Player pulls a card from the draw and picks up the stack
-            PullCard,
+            PlaceCard { card: Card },
 
             /// Player picks up the stack
             PickupStack

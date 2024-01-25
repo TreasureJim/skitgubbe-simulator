@@ -20,7 +20,7 @@ use crate::api::server_messages;
 pub struct SkitGubbe {
     players: Vec<Arc<Mutex<Player>>>,
     deck: Arc<Mutex<Deck>>,
-    playing_stack: Vec<Card>
+    playing_stack: Vec<Card>,
 }
 
 const MAX_TURNS: usize = 300;
@@ -55,7 +55,7 @@ impl SkitGubbe {
         Self {
             deck: Arc::new(Mutex::new(deck)),
             players,
-            playing_stack: vec![]
+            playing_stack: vec![],
         }
     }
 
@@ -131,7 +131,12 @@ impl SkitGubbe {
         // send all players all cards
         for player in &self.players {
             let player = player.lock().await;
-            let _ = player.user.lock().await.send(&serde_json::to_string(&all_player_cards).unwrap()).await;
+            let _ = player
+                .user
+                .lock()
+                .await
+                .send(&serde_json::to_string(&all_player_cards).unwrap())
+                .await;
         }
 
         Ok(())
@@ -189,7 +194,8 @@ impl SkitGubbe {
                     if player.cards.hand.len() < 3 {
                         let num_pick_up = 3 - player.cards.hand.len();
                         player
-                            .cards.hand
+                            .cards
+                            .hand
                             .append(&mut deck.lock().await.pull_cards(num_pick_up));
                         player.cards.hand.sort();
                     }
@@ -215,11 +221,11 @@ impl SkitGubbe {
     ///
     /// Returns: index of winning player
     async fn execute_round(&mut self) -> Result<Option<usize>, String> {
-        let mut index = 0;
-        'player_loop: while index <= self.players.len() {
-            let mut player = self.players[index].lock().await;
+        let mut player_index = 0;
+        'player_loop: while player_index <= self.players.len() {
+            let mut player = self.players[player_index].lock().await;
             if player.has_won() {
-                return Ok(Some(index));
+                return Ok(Some(player_index));
             }
 
             let player_id = player.user.lock().await.id.to_string();
@@ -241,49 +247,61 @@ impl SkitGubbe {
                 continue;
             };
 
-            let cards = match action {
-                player_messages::action::PlayAction::PlaceCard { cards } => cards,
-                player_messages::action::PlayAction::PullCard => {
-                    todo!();
-                    continue;
-                },
+            let card = match action {
+                player_messages::action::PlayAction::PlaceCard { card } => card,
                 player_messages::action::PlayAction::PickupStack => {
-                    todo!();
-                    continue;
+                    player.hand.append(&mut self.playing_stack);
+                    player_index += 1;
+                    continue 'player_loop;
                 }
             };
 
-            if cards.is_empty() {
-                player.notify_invalid_action();
-                continue;
+            // check if actions are valid
+            let mut player_cards_copy = player.cards.clone();
+            if player_cards_copy.play_card(&card).is_none() {
+                player.notify_invalid_action().await;
+                continue 'player_loop;
             }
 
-            let fake_player = player.cards.clone();
-            for card in cards {
-                if player.play_card(&card).is_none() {
-                    player.notify_invalid_action().await;
-                    continue 'player_loop;
+            match card.rank {
+                2 => {
+                    self.playing_stack.push(card);
                 }
+                10 => {
+                    self.playing_stack = vec![];
+                }
+                _ => {
+                    // if bad card
+                    if let Some(last_card) = self.playing_stack.last()
+                        && last_card.rank > card.rank
+                    {
+                        player.notify_invalid_action().await;
+                        continue 'player_loop;
+                    }
 
-                
+                    self.playing_stack.push(card);
+
+                    // if last 4 are the same rank then restart the stack
+                    if self.playing_stack.len() >= 4
+                        && self.playing_stack[self.playing_stack.len() - 4..]
+                            .iter()
+                            .filter(|x| self.playing_stack.last().unwrap().rank == x.rank)
+                            .count()
+                            == 4
+                    {
+                        self.playing_stack = vec![];
+                    }
+                }
             }
 
-            // self.playing_stack.push(card);
-            //
-            // match card.rank {
-            //     2 => {
-            //         
-            //         continue;
-            //     },
-            //     10 => {
-            //
-            //         continue;
-            //     },
-            //     _ => {}
-            // }
+            // confirm player actions
+            player.cards = player_cards_copy;
 
-
-            index += 1;
+            // pickup any cards if needed
+            if player.cards.hand.len() < 3 {
+                let pickup_num = 3 - player.cards.hand.len();
+                player.cards.hand.append(&mut self.deck.lock().await.pull_cards(pickup_num));
+            }
         }
 
         Ok(None)
