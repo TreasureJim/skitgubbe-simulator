@@ -65,12 +65,12 @@ async fn handler(
     ws.on_upgrade(|socket| handle_socket(socket, state))
 }
 
-use skitgubbe_game::api::server_messages::ServerMessages;
+use skitgubbe_game::api::server_messages::ServerNotification;
 
 async fn handle_socket(socket: WebSocket, state: Arc<Mutex<ServerQueue>>) {
     let mut user = User::new(socket);
 
-    let server_id_msg = ServerMessages::Id(user.id.to_string());
+    let server_id_msg = ServerNotification::Id(user.id.to_string());
     let _ = user
         .sender
         .send(Message::Text(serde_json::to_string(&server_id_msg).unwrap()))
