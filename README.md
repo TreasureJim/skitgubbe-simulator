@@ -16,8 +16,6 @@ Alternate names:
 
 # TODO
 
-- (URGENT) Change API and gameplay to send 1 global state message each turn
-
 - Database connection and design
 - ELO system
 - Fair queue system

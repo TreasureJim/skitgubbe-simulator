@@ -1,6 +1,6 @@
-use std::mem;
 use crate::api;
 use crate::deck::{self, Card};
+use std::mem;
 
 #[derive(Clone)]
 pub struct PlayerCards {
@@ -29,7 +29,7 @@ impl PlayerCards {
     pub fn has_won(&self) -> bool {
         return self.hand.is_empty() && self.get_bottom_cards().is_empty();
     }
-    pub fn to_server_player_cards(&self, id: String) -> api::server_messages::Cards {
+    pub fn to_server_player_cards(&self) -> api::server_messages::Cards {
         let bottom_cards;
         if !self.visible_cards.is_empty() {
             bottom_cards = self.visible_cards.to_vec();
@@ -48,13 +48,16 @@ impl PlayerCards {
                 .collect();
         }
 
-        let cards = api::server_messages::Cards::new(
-            id, 
-            self.hand.to_vec(),
+        let cards = api::server_messages::Cards {
+            hand: self.hand.to_vec(),
             bottom_cards,
-        );
+        };
 
         cards
+    }
+
+    pub fn visible_cards(&self) -> api::server_messages::BottomCards {
+        return self.visible_cards.clone();
     }
 
     pub fn can_play(&self, card: &Card) -> bool {
@@ -68,7 +71,8 @@ impl PlayerCards {
             return self
                 .visible_cards
                 .iter()
-                .find(|vec| vec[0] == *card).is_some();
+                .find(|vec| vec[0] == *card)
+                .is_some();
         }
 
         // hidden cards

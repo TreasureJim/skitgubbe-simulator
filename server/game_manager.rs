@@ -1,10 +1,7 @@
 use std::{collections::VecDeque, sync::Arc};
 
 use axum::extract::ws::Message;
-use futures::{
-    lock::Mutex,
-    SinkExt,
-};
+use futures::{lock::Mutex, SinkExt};
 
 use skitgubbe_game::game;
 use skitgubbe_game::user::User;
@@ -13,7 +10,7 @@ pub struct ServerQueue {
     queue: Arc<Mutex<VecDeque<User>>>,
 }
 
-const GAME_PLAYER_SIZE: usize = 3;
+const GAME_PLAYER_SIZE: usize = 1;
 
 impl ServerQueue {
     pub fn new() -> Self {
@@ -67,7 +64,9 @@ impl ServerQueue {
                 let mut users = users
                     .into_iter()
                     .map(|user| {
-                        Arc::into_inner(user).expect("Someone else has a reference to this user").into_inner()
+                        Arc::into_inner(user)
+                            .expect("Someone else has a reference to this user")
+                            .into_inner()
                     })
                     .collect();
 
@@ -77,7 +76,6 @@ impl ServerQueue {
         }
     }
 }
-
 
 async fn db_add_winner(user: &User) {
     compute_elo();

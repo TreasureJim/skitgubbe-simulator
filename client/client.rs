@@ -38,10 +38,10 @@ async fn main() {
     )
     .expect("expect server notification game start");
 
-    let server_messages::ServerNotification::GameStart(player_ids) = s_notif else {
-        panic!("server notif not game start");
-    };
-    let other_player_ids: Vec<String> = player_ids.into_iter().filter(|id| *id != our_id).collect();
+    // let server_messages::ServerNotification::GameStart(player_ids) = s_notif else {
+    //     panic!("server notif not game start");
+    // };
+    // let other_player_ids: Vec<String> = player_ids.into_iter().filter(|id| *id != our_id).collect();
 
     //              GAME STARTED
     println!("Game starting");
@@ -51,6 +51,7 @@ async fn main() {
         &stream.next().await.unwrap().unwrap().to_string(),
     )
     .expect("expect game stage swap");
+
     if let server_messages::Stage::Swap = stage {
         println!("Swap stage");
     } else {
@@ -60,13 +61,11 @@ async fn main() {
     let mut cards;
 
     loop {
-        cards = serde_json::from_str::<server_messages::Cards>(
-            &stream.next().await.unwrap().unwrap().to_string(),
-        )
-        .expect("expect cards notif");
-        if cards.owner_id != our_id {
-            panic!("cards not our own");
-        }
+        let message = stream.next().await.unwrap().unwrap().to_string();
+        let state = serde_json::from_str::<server_messages::GameState>(&message)
+            .expect("expect game state notif");
+
+        cards = state.cards;
 
         //          CARD SWAPPING STRATEGY
 
@@ -153,18 +152,6 @@ async fn main() {
         .await;
     println!("Finished exchange");
 
-    let mut all_cards = serde_json::from_str::<Vec<server_messages::Cards>>(
-        &stream.next().await.unwrap().unwrap().to_string(),
-    )
-    .expect("expect all cards status");
-    cards = all_cards.remove(
-        all_cards
-            .iter()
-            .position(|other_cards| other_cards.owner_id == our_id)
-            .expect("our cards should be in list"),
-    );
-    println!("Received everyones cards");
-
     let stage = serde_json::from_str::<server_messages::Stage>(
         &stream.next().await.unwrap().unwrap().to_string(),
     )
@@ -184,7 +171,7 @@ async fn main() {
     loop {
         println!(
             "Received message: {}",
-            stream.next().await.unwrap().unwrap()
+            stream.next().await.unwrap().unwrap().to_string()
         );
     }
 }

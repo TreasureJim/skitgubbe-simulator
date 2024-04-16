@@ -1,3 +1,4 @@
+mod gamestate;
 mod player;
 mod playercards;
 
@@ -6,8 +7,6 @@ use std::sync::Arc;
 use axum::extract::ws::Message;
 use futures_util::{lock::Mutex, StreamExt};
 
-use crate::api::server_messages::Cards;
-use crate::deck;
 use crate::deck::Card;
 use crate::deck::Deck;
 use player::Player;
@@ -72,17 +71,8 @@ impl SkitGubbe {
         }
         let game_start_msg = server_messages::ServerNotification::GameStart(player_ids.clone());
 
-        for (player, id) in self.players.iter_mut().zip(&player_ids) {
-            player
-                .lock()
-                .await
-                .user
-                .lock()
-                .await
-                .send(&serde_json::to_string(&game_start_msg).unwrap())
-                .await
-                .map_err(|_| id)?;
-        }
+        self.notify_all_players(&serde_json::to_string(&game_start_msg).unwrap())
+            .await;
 
         // start setup round
         self.notify_all_players(&serde_json::to_string(&server_messages::Stage::Swap).unwrap())
@@ -122,22 +112,7 @@ impl SkitGubbe {
             .collect();
 
         // TODO: Add timeout period if one of the players takes too long
-        let answers = futures::future::join_all(player_futures).await;
-        let all_player_cards: Vec<Cards> = answers
-            .into_iter()
-            .map(|x| x.unwrap())
-            .collect::<Result<Vec<_>, _>>()?;
-
-        // send all players all cards
-        for player in &self.players {
-            let player = player.lock().await;
-            let _ = player
-                .user
-                .lock()
-                .await
-                .send(&serde_json::to_string(&all_player_cards).unwrap())
-                .await;
-        }
+        let _ = futures::future::join_all(player_futures).await;
 
         Ok(())
     }
@@ -157,7 +132,7 @@ impl SkitGubbe {
         let player_id = player.user.lock().await.id.to_string();
 
         // show players their cards
-        player.send_cards().await;
+        player.send_setup_game_state().await;
 
         // allow players to exchange their cards
         loop {
@@ -183,7 +158,7 @@ impl SkitGubbe {
                         let _ = player.user.lock().await.send(e).await;
                         continue;
                     }
-                    player.send_cards().await;
+                    player.send_setup_game_state().await;
                 }
                 player_messages::action::SetupAction::CompoundCard { hand, bottom } => {
                     if let Err(e) = player.compound_cards(hand, bottom).await {
@@ -200,7 +175,7 @@ impl SkitGubbe {
                         player.cards.hand.sort();
                     }
 
-                    player.send_cards().await;
+                    player.send_setup_game_state().await;
                 }
                 player_messages::action::SetupAction::FinishExchange => {
                     break;
@@ -208,9 +183,7 @@ impl SkitGubbe {
             };
         }
 
-        let id = player.user.lock().await.id.to_string();
         Ok(server_messages::Cards {
-            owner_id: id,
             hand: player.cards.hand.to_vec(),
             bottom_cards: player.get_bottom_cards(),
         })
@@ -227,6 +200,8 @@ impl SkitGubbe {
             if player.has_won() {
                 return Ok(Some(player_index));
             }
+
+            self.send_playing_game_state(player_index).await;
 
             let player_id = player.user.lock().await.id.to_string();
 
@@ -300,11 +275,14 @@ impl SkitGubbe {
             // pickup any cards if needed
             if player.cards.hand.len() < 3 {
                 let pickup_num = 3 - player.cards.hand.len();
-                player.cards.hand.append(&mut self.deck.lock().await.pull_cards(pickup_num));
+                player
+                    .cards
+                    .hand
+                    .append(&mut self.deck.lock().await.pull_cards(pickup_num));
             }
 
-            player.send_cards().await;
-            todo!("send actions of player to other players");
+            // player.send_cards().await;
+            // todo!("send actions of player to other players");
         }
 
         Ok(None)

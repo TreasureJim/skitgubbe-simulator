@@ -26,10 +26,9 @@ pub mod player_messages {
             PlaceCard { card: Card },
 
             /// Player picks up the stack
-            PickupStack
+            PickupStack,
         }
     }
-
 }
 
 pub mod server_messages {
@@ -40,7 +39,7 @@ pub mod server_messages {
     #[derive(Serialize, Deserialize)]
     pub enum ServerNotification {
         GameStart(Vec<String>),
-        Id(String)
+        Id(String),
     }
 
     #[derive(Serialize, Deserialize, Debug)]
@@ -50,33 +49,26 @@ pub mod server_messages {
         Play,
     }
 
-    type BottomCards = Vec<Vec<Card>>;
+    pub type BottomCards = Vec<Vec<Card>>;
 
     #[derive(Serialize, Deserialize, Debug, Clone)]
     #[serde(tag = "state")]
     pub struct Cards {
-        pub owner_id: String,
         pub hand: Vec<Card>,
         pub bottom_cards: BottomCards,
-    }
-
-    impl Cards {
-        pub fn new(owner_id: String, hand: Vec<Card>, bottom_cards: Vec<Vec<Card>>) -> Self {
-            Self { hand, bottom_cards, owner_id }
-        }
     }
 
     /// A struct representing the game state
     #[derive(Serialize, Deserialize, Debug)]
     pub struct GameState {
         /// The ID of the player who turn it is
-        turn: String,
-        stage: Stage,
+        pub turn: String,
+        pub stage: Stage,
         /// The cards of the player
-        cards: Cards,
+        pub cards: Cards,
         /// The stack of played cards
-        stack: Vec<Card>,
+        pub stack: Vec<Card>,
         /// Other players visible cards
-        other_players: Vec<(String, BottomCards)>
+        pub other_players: Vec<(String, BottomCards)>,
     }
 }

@@ -1,11 +1,11 @@
+use futures_util::lock::Mutex;
 use std::ops::{Deref, DerefMut};
 use std::sync::Arc;
-use futures_util::lock::Mutex;
 
+use super::playercards::PlayerCards;
+use crate::api::server_messages::{self, GameState};
 use crate::deck;
 use crate::user::User;
-use super::playercards::PlayerCards;
-
 
 pub struct Player {
     pub user: Arc<Mutex<User>>,
@@ -23,20 +23,37 @@ impl Player {
 
         Self {
             user,
-            cards: PlayerCards::new(hand, visible_cards.to_vec(), hidden_cards)
+            cards: PlayerCards::new(hand, visible_cards.to_vec(), hidden_cards),
         }
     }
-
 
     pub async fn notify_invalid_action(&mut self) {
         let _ = self.user.lock().await.send("Invalid action").await;
     }
 
-    pub async fn send_cards(&mut self) {
-        let cards = self.cards.to_server_player_cards(self.user.lock().await.id.to_string());
-        let s = serde_json::to_string(&cards).unwrap();
-        let _ = self.user.lock().await.send(&s).await;
+    pub async fn send_setup_game_state(&self) {
+        let message = GameState {
+            turn: "".to_string(),
+            // turn: self.user.lock().await.id.to_string(),
+            stage: server_messages::Stage::Swap,
+            cards: self.to_server_player_cards(),
+            stack: vec![],
+            other_players: vec![],
+        };
+
+        let _ = self
+            .user
+            .lock()
+            .await
+            .send(&serde_json::to_string(&message).unwrap())
+            .await;
     }
+
+    // pub async fn send_cards(&mut self) {
+    //     let cards = self.cards.to_server_player_cards();
+    //     let s = serde_json::to_string(&cards).unwrap();
+    //     let _ = self.user.lock().await.send(&s).await;
+    // }
 }
 
 impl Deref for Player {

@@ -11,15 +11,17 @@
 			"cargo": {
 				"args": [
 					"build",
-					"--bin=client",
-					"--package=skitgubbe-server"
+					"--example=client",
+					"--package=skitgubbe-server",
 				],
 				"filter": {
 					"name": "client",
-					"kind": "bin"
+					"kind": "example"
 				}
 			},
-			"args": [],
+			"args": [
+				"0.0.0.0:3000"
+			],
 			"cwd": "${workspaceFolder}"
 		},
 		{
